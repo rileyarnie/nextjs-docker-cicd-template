@@ -1,0 +1,168 @@
+version: 2.1
+
+orbs:
+  docker: circleci/docker@0.5.13
+
+jobs:
+  build:
+    docker:
+      - image: circleci/node
+    working_directory: ~/docker-cicd
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dependencies-{{ checksum "package.json" }}
+            - dependecies-
+      - run: yarn install
+      - save_cache:
+          paths:
+            - node_modules
+          key: dependencies-{{ checksum "package.json" }}
+      - run: yarn test
+      # - run: yarn build
+      - persist_to_workspace:
+          # Must be an absolute path, or relative path from working_directory. This is a directory on the container which is
+          # taken to be the root directory of the workspace.
+          root: .
+
+          paths:
+            - .
+
+  build_docker:
+    working_directory: ~/docker-cicd
+    docker:
+      - image: docker:17.05.0-ce-git
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 19.03.13
+      - attach_workspace:
+          at: .
+      - run:
+          name: Build application Docker image
+          command: |
+            docker build -t arnoldkibira/docker-cicd:$CIRCLE_SHA1 .
+      - run:
+          name: Save application Docker image
+          command: |
+            mkdir /tmp/workspace
+            docker save -o /tmp/workspace/image.tar arnoldkibira/docker-cicd:$CIRCLE_SHA1
+      - persist_to_workspace:
+          # Must be an absolute path, or relative path from working_directory. This is a directory on the container which is
+          # taken to be the root directory of the workspace.
+          root: /tmp
+
+          paths:
+            - workspace
+
+  push_latest:
+    working_directory: ~/docker-cicd
+    docker:
+      - image: docker:17.05.0-ce-git
+    steps:
+      - setup_remote_docker:
+          version: 19.03.13
+      - attach_workspace:
+          at: /tmp
+      - run:
+          name: Load application Docker image
+          command: |
+            docker load --input /tmp/workspace/image.tar
+      - run:
+          name: Tag docker image
+          command: |
+            docker tag arnoldkibira/docker-cicd:$CIRCLE_SHA1 arnoldkibira/docker-cicd:latest
+      - run:
+          name: Push application Docker image
+          command: |
+            docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+            docker push arnoldkibira/docker-cicd:latest
+
+  push_production:
+    working_directory: ~/docker-cicd
+    docker:
+      - image: docker:17.05.0-ce-git
+    steps:
+      - setup_remote_docker:
+          version: 19.03.13
+      - attach_workspace:
+          at: /tmp
+      - run:
+          name: Load application Docker image
+          command: |
+            docker load --input /tmp/workspace/image.tar
+      - run:
+          name: Tag docker image
+          command: |
+            docker tag arnoldkibira/docker-cicd:$CIRCLE_SHA1 arnoldkibira/docker-cicd:production
+      - run:
+          name: Push application Docker image
+          command: |
+            docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+            docker push arnoldkibira/docker-cicd:production
+
+  push_tagged:
+    working_directory: ~/docker-cicd
+    docker:
+      - image: docker:17.05.0-ce-git
+    steps:
+      - setup_remote_docker:
+          version: 19.03.13
+      - attach_workspace:
+          at: /tmp
+      - run:
+          name: Load application Docker image
+          command: |
+            docker load --input /tmp/workspace/image.tar
+      - run:
+          name: Tag docker image
+          command: |
+            docker tag arnoldkibira/docker-cicd:$CIRCLE_SHA1 arnoldkibira/docker-cicd:$CIRCLE_TAG
+      - run:
+          name: Push application Docker image
+          command: |
+            docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
+            docker push arnoldkibira/docker-cicd:$CIRCLE_TAG
+
+workflows:
+  version: 2
+  build_and_push:
+    jobs:
+      - build
+      - build_docker:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - develop
+                - master
+          requires:
+            - build
+      - push_latest:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - develop
+          requires:
+            - build_docker
+      - push_production:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - master
+          requires:
+            - build_docker
+      - push_tagged:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          requires:
+            - build_docker
