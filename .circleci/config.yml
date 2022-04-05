@@ -7,7 +7,7 @@ jobs:
   build:
     docker:
       - image: circleci/node
-    working_directory: ~/docker-cicd
+    working_directory: ~/docker-nextjs-cicd
     steps:
       - checkout
       - restore_cache:
@@ -30,7 +30,7 @@ jobs:
             - .
 
   build_docker:
-    working_directory: ~/docker-cicd
+    working_directory: ~/docker-nextjs-cicd
     docker:
       - image: docker:17.05.0-ce-git
     steps:
@@ -42,12 +42,12 @@ jobs:
       - run:
           name: Build application Docker image
           command: |
-            docker build -t arnoldkibira/docker-cicd:$CIRCLE_SHA1 .
+            docker build -t arnoldkibira/docker-nextjs-cicd:$CIRCLE_SHA1 .
       - run:
           name: Save application Docker image
           command: |
             mkdir /tmp/workspace
-            docker save -o /tmp/workspace/image.tar arnoldkibira/docker-cicd:$CIRCLE_SHA1
+            docker save -o /tmp/workspace/image.tar arnoldkibira/docker-nextjs-cicd:$CIRCLE_SHA1
       - persist_to_workspace:
           # Must be an absolute path, or relative path from working_directory. This is a directory on the container which is
           # taken to be the root directory of the workspace.
@@ -57,7 +57,7 @@ jobs:
             - workspace
 
   push_latest:
-    working_directory: ~/docker-cicd
+    working_directory: ~/docker-nextjs-cicd
     docker:
       - image: docker:17.05.0-ce-git
     steps:
@@ -72,15 +72,15 @@ jobs:
       - run:
           name: Tag docker image
           command: |
-            docker tag arnoldkibira/docker-cicd:$CIRCLE_SHA1 arnoldkibira/docker-cicd:latest
+            docker tag arnoldkibira/docker-nextjs-cicd:$CIRCLE_SHA1 arnoldkibira/docker-nextjs-cicd:latest
       - run:
           name: Push application Docker image
           command: |
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
-            docker push arnoldkibira/docker-cicd:latest
+            docker push arnoldkibira/docker-nextjs-cicd:latest
 
   push_production:
-    working_directory: ~/docker-cicd
+    working_directory: ~/docker-nextjs-cicd
     docker:
       - image: docker:17.05.0-ce-git
     steps:
@@ -95,15 +95,15 @@ jobs:
       - run:
           name: Tag docker image
           command: |
-            docker tag arnoldkibira/docker-cicd:$CIRCLE_SHA1 arnoldkibira/docker-cicd:production
+            docker tag arnoldkibira/docker-nextjs-cicd:$CIRCLE_SHA1 arnoldkibira/docker-nextjs-cicd:production
       - run:
           name: Push application Docker image
           command: |
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
-            docker push arnoldkibira/docker-cicd:production
+            docker push arnoldkibira/docker-nextjs-cicd:production
 
   push_tagged:
-    working_directory: ~/docker-cicd
+    working_directory: ~/docker-nextjs-cicd
     docker:
       - image: docker:17.05.0-ce-git
     steps:
@@ -118,12 +118,12 @@ jobs:
       - run:
           name: Tag docker image
           command: |
-            docker tag arnoldkibira/docker-cicd:$CIRCLE_SHA1 arnoldkibira/docker-cicd:$CIRCLE_TAG
+            docker tag arnoldkibira/docker-nextjs-cicd:$CIRCLE_SHA1 arnoldkibira/docker-nextjs-cicd:$CIRCLE_TAG
       - run:
           name: Push application Docker image
           command: |
             docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
-            docker push arnoldkibira/docker-cicd:$CIRCLE_TAG
+            docker push arnoldkibira/docker-nextjs-cicd:$CIRCLE_TAG
 
 workflows:
   version: 2
