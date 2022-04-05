@@ -137,7 +137,7 @@ workflows:
             branches:
               only:
                 - develop
-                - master
+                - main
           requires:
             - build
       - push_latest:
@@ -155,7 +155,7 @@ workflows:
               only: /^v.*/
             branches:
               only:
-                - master
+                - main
           requires:
             - build_docker
       - push_tagged:
